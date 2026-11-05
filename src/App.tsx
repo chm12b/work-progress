@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, Search, Check, Pencil, Trash2, Download, Upload, CalendarDays, ListTodo, ChartNoAxesCombined, X, ChevronUp, ChevronDown, Mail } from 'lucide-react';
 import { seedTasks } from './seed';
 
-type Task = {id:string; library:string; type:string; program:string; lines:string; md:number; description:string; done:boolean; actualDone?:boolean; actualDoneDate?:string; actualDate:string; lockedStart:string; lockedEnd:string; progress?:number; progressHistory?:{date:string;value:number}[];};
+type Task = {id:string; start?:string; end?:string; library:string; type:string; program:string; lines:string; md:number; description:string; done:boolean; actualDone?:boolean; actualDoneDate?:string; actualDate:string; lockedStart:string; lockedEnd:string; progress?:number; progressHistory?:{date:string;value:number}[];};
 const DB='program-progress-v1', STORE='tasks';
 const HOLIDAYS = new Set(['2026-10-09','2026-10-23','2026-10-26','2026-12-25','2027-01-01']);
 function openDB():Promise<IDBDatabase>{return new Promise((res,rej)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE,{keyPath:'id'});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
