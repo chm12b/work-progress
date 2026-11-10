@@ -13,31 +13,30 @@ function addDays(value:string,n:number){const d=new Date(value+'T12:00:00');d.se
 function addWorkdays(start:string,days:number){let d=new Date(start+'T12:00:00');let n=0;while(n<days){const day=d.getDay();if(day!==0&&day!==6&&!HOLIDAYS.has(iso(d)))n++;if(n<days)d.setDate(d.getDate()+1);}return iso(d);}
 function nextWorkday(start:string){let d=new Date(start+'T12:00:00');do{d.setDate(d.getDate()+1);}while(d.getDay()===0||d.getDay()===6||HOLIDAYS.has(iso(d)));return iso(d);}
 function plan(tasks:Task[],startDate:string,capacity:number){
- let cursor=startDate;
- let used=0;
+ const daily=Math.max(0.1,Number(capacity)||1),eps=1e-8;
+ let cursor=startDate,used=0;
  return tasks.map(t=>{
   const md=Math.max(0,Number(t.md)||0);
   if(t.done){
-   const fixedStart=t.lockedStart||'';
-   const fixedEnd=t.lockedEnd||t.actualDate||'';
-   if(fixedEnd){cursor=nextWorkday(fixedEnd);used=0;}
+   const fixedStart=t.lockedStart||'',fixedEnd=t.lockedEnd||t.actualDate||'';
+   if(fixedEnd){
+    const remainder=md%daily;
+    if(remainder>eps&&daily-remainder>eps){cursor=fixedEnd;used=remainder;}
+    else{cursor=nextWorkday(fixedEnd);used=0;}
+   }
    return {...t,start:fixedStart,end:fixedEnd};
   }
-  const start=used>=capacity-1e-8?nextWorkday(cursor):cursor;
-  if(used>=capacity-1e-8){cursor=start;used=0;}
-  const available=capacity-used;
-  const remaining=md;
-  const totalAfter=used+remaining;
-  const days=Math.max(1,Math.ceil((totalAfter-1e-8)/capacity));
-  let end=addWorkdays(cursor,days);
-  const result={...t,start,end};
-  used=totalAfter%capacity;
-  if(Math.abs(used)<1e-8)used=capacity;
-  if(used>=capacity-1e-8){cursor=nextWorkday(end);used=0;}
-  return result;
+  if(md<=eps)return {...t,start:'',end:''};
+  const taskStart=cursor;
+  let remaining=md,taskEnd=cursor;
+  while(remaining>eps){
+   const consumed=Math.min(remaining,daily-used);
+   remaining-=consumed;used+=consumed;taskEnd=cursor;
+   if(used>=daily-eps){cursor=nextWorkday(cursor);used=0;}
+  }
+  return {...t,start:taskStart,end:taskEnd};
  });
-}
-function progressAsOf(t:Task,date:string){const entries=(t.progressHistory||[]).filter(x=>x.date<=date);if(entries.length)return Math.max(0,Math.min(100,entries[entries.length-1].value));return t.done&&t.actualDate&&t.actualDate<=date?100:0;}
+}function progressAsOf(t:Task,date:string){const entries=(t.progressHistory||[]).filter(x=>x.date<=date);if(entries.length)return Math.max(0,Math.min(100,entries[entries.length-1].value));return t.done&&t.actualDate&&t.actualDate<=date?100:0;}
 function workdaysBetween(start:string,end:string){if(!start||!end||end<start)return 0;let n=0;for(let d=new Date(start+'T12:00:00');iso(d)<=end;d.setDate(d.getDate()+1)){if(d.getDay()!==0&&d.getDay()!==6&&!HOLIDAYS.has(iso(d)))n++;}return n;}
 function expectedProgressAsOf(t:Task,date:string){if(!t.start||!t.end||date<t.start)return 0;if(date>=t.end)return 100;const total=workdaysBetween(t.start,t.end);if(total<=1)return 0;const elapsed=workdaysBetween(t.start,date);return Math.max(0,Math.min(100,elapsed/total*100));}
 function weightedProgress(list:Task[],date?:string){const total=list.reduce((s,t)=>s+Number(t.md||0),0);if(!total)return 0;return list.reduce((s,t)=>s+Number(t.md||0)*(date?progressAsOf(t,date):(t.done?100:(t.progress??0)))/100,0)/total*100;}
